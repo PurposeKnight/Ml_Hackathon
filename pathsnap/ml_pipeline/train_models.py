@@ -42,7 +42,7 @@ def build_dataset(root: Path, partition: str, radius_m: float = 50.0, max_candid
         raise ValueError("negatives_per_observation must be non-negative")
     # Keep all positives and a deterministic rank-ordered negative sample per
     # observation. This preserves the ranking task while keeping KNN tractable.
-    frame["_negative_order"] = frame.groupby(["trip_id", "observation_id"])["target"].transform(lambda values: (values == 0).cumsum())
+    frame["_negative_order"] = frame["target"].eq(0).groupby([frame["trip_id"], frame["observation_id"]]).cumsum()
     selected = (frame["target"] == 1) | (frame["_negative_order"] <= negatives_per_observation)
     return frame.loc[selected].drop(columns="_negative_order").reset_index(drop=True)
 
