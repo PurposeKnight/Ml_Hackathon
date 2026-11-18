@@ -66,10 +66,19 @@ export const RouteMap: React.FC<RouteMapProps> = ({
     const mapUrl = `${API_BASE_URL}/api/trips/${selectedTripId}/map`;
 
     fetch(mapUrl, { method: 'GET', signal: controller.signal })
-      .then((res) => {
+      .then(async (res) => {
         if (!res.ok) {
-          setIframeError(`Laptop 1 returned HTTP ${res.status} (${res.statusText}) for Folium map at ${mapUrl}.`);
+          setIframeError(`Laptop 1 backend endpoint not found (${mapUrl} returned HTTP ${res.status}: ${res.statusText}). Laptop 1 needs to add the /api/trips/{trip_id}/map route.`);
           setIsIframeLoading(false);
+        } else {
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const data = await res.json().catch(() => ({}));
+            if (data && data.detail) {
+              setIframeError(`Laptop 1 returned: "${data.detail}". The Folium map route is not yet active on Laptop 1.`);
+              setIsIframeLoading(false);
+            }
+          }
         }
       })
       .catch((_err) => {
@@ -78,6 +87,30 @@ export const RouteMap: React.FC<RouteMapProps> = ({
 
     return () => controller.abort();
   }, [activeTab, isPredictionRequested, selectedTripId, API_BASE_URL, iframeKey]);
+
+  // When switching to 'leaflet', immediately refresh Leaflet size and bounds so it never renders blank
+  useEffect(() => {
+    if (activeTab === 'leaflet' && mapInstanceRef.current) {
+      const timer = setTimeout(() => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
+        map.invalidateSize();
+
+        const points: LatLngCoord[] = [
+          ...predictedRouteCoordinates,
+          ...gpsCoordinates.map((c) => [c[0], c[1]] as LatLngCoord),
+        ];
+        if (points.length > 0) {
+          const bbox = computeBoundingBox(points);
+          if (bbox) {
+            map.fitBounds(bbox, { padding: [40, 40], maxZoom: 16 });
+          }
+        }
+      }, 50);
+
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, predictedRouteCoordinates, gpsCoordinates]);
 
   // Initialize Map
   useEffect(() => {
@@ -371,16 +404,17 @@ export const RouteMap: React.FC<RouteMapProps> = ({
       </div>
 
       {/* Map View Container */}
-      <div className="relative flex-1 bg-slate-950">
-        {/* Leaflet Map Div */}
+      <div className="relative w-full h-[600px] bg-slate-950 overflow-hidden">
+        {/* Leaflet Map Div - Always mounted and sized */}
         <div
           ref={mapContainerRef}
-          className={`w-full h-full ${activeTab === 'leaflet' ? 'block' : 'hidden'}`}
+          className="w-full h-full"
+          style={{ minHeight: '600px' }}
         />
 
-        {/* Folium HTML Iframe View */}
+        {/* Folium HTML Iframe View - Rendered as overlay on top of Leaflet when active */}
         {activeTab === 'folium' && (
-          <div className="w-full flex-1 flex flex-col relative bg-slate-950 min-h-[600px]">
+          <div className="absolute inset-0 z-20 w-full h-full flex flex-col bg-slate-950">
             {!isPredictionRequested || !selectedTripId ? (
               <div className="flex flex-col items-center justify-center flex-1 min-h-[500px] text-center p-6 text-slate-400">
                 <Code className="h-10 w-10 text-slate-600 mb-3" />
@@ -454,8 +488,8 @@ export const RouteMap: React.FC<RouteMapProps> = ({
         )}
 
         {/* Empty State Overlay */}
-        {!hasData && (
-          <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center pointer-events-none">
+        {!hasData && activeTab === 'leaflet' && (
+          <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center pointer-events-none z-10">
             <div className="h-12 w-12 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center mb-3 text-slate-500">
               <Map className="h-6 w-6" />
             </div>
