@@ -8,5 +8,6 @@
 - Optional green reference route for permitted development/reporting use only.
 - Layer controls and a documented legend through layer names.
 
-Representative output: `results/maps/trip_00000000.html`, generated from the student-test partition using the exported
-tuned model. Evaluator reference data is never passed to this map in the inference workflow.
+Representative outputs are `results/maps/trip_00000000.html` and
+`results/plots/gps_matched_route_map.html`. The former is the historical student-test demonstration; the latter is
+the first-evaluation visualisation pack. Evaluator reference data is never passed to the normal inference workflow.

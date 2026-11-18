@@ -1,6 +1,6 @@
 # Bayesian optimization evidence
 
-The selected initial model was HistGradientBoosting based on the measured five-model comparison. Optuna TPE searched
+The historical initial model was HistGradientBoosting based on the original sampled-student five-model comparison. Optuna TPE searched
 the following space using only training trips and three `GroupKFold` splits:
 
 - `learning_rate`: log-uniform `[0.02, 0.2]`
@@ -32,6 +32,7 @@ The final refit comparison on the student-test partition was:
 | Untuned HGB | 0.849269 | 0.820325 | 0.385197 |
 | Tuned HGB | **0.850104** | **0.821476** | **0.384484** |
 
-The exported tuned artifact is [final_model.joblib](../pathsnap/ml_pipeline/artifacts/final_model.joblib), with its
-feature and parameter manifest beside it. Machine-readable comparison is
+The exported historical tuned artifact is [final_model.joblib](../pathsnap/ml_pipeline/artifacts/final_model.joblib), with its
+feature and parameter manifest beside it. The corrected baseline deliberately selects Logistic Regression by complete-candidate
+GroupKFold Macro F1 and does not rerun Bayesian optimization. Machine-readable comparison is
 [tuned_vs_untuned_student.csv](../results/optimization/tuned_vs_untuned_student.csv).
