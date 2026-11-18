@@ -1,0 +1,12 @@
+{
+  "best_value": 0.7872393790512655,
+  "best_params": {
+    "learning_rate": 0.0798261175712336,
+    "max_iter": 201,
+    "max_leaf_nodes": 9,
+    "l2_regularization": 6.598711072054068
+  },
+  "n_trials": 8,
+  "seed": 42,
+  "folds": 3
+}
