@@ -25,7 +25,7 @@ The complete table is [model_comparison.csv](../results/corrected_models/model_c
 | KNN | 0.448107 | 0.464052 | 0.430271 | 15.542463 | 0.136254 |
 | Random Forest | 0.446602 | 0.466644 | 0.325992 | 4.971794 | 0.003802 |
 
-Logistic Regression is selected because it has the highest corrected GroupKFold Macro F1 (0.7295715568). Its student Top-1 and Macro F1 are also strongest, while its log loss and inference time are practical. This selection is based on cross-validation first, with student results used only as supporting evidence.
+The baseline comparison selects Logistic Regression because it has the highest corrected GroupKFold Macro F1 (0.7295715568). The subsequent corrected Bayesian optimization improved that CV score to 0.7336865386 with `C=0.0010660012`, `class_weight=None`, and `max_iter=700`. The tuned artifact is now the selected model; its student Macro F1 is 0.745579 and complete-candidate Top-1 is 0.764301. The optimization comparison is [corrected_logistic_tuned_vs_baseline.csv](../results/corrected_models/corrected_logistic_tuned_vs_baseline.csv).
 
 ## Why the numbers changed
 

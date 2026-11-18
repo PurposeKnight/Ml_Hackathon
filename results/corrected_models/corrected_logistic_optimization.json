@@ -1,0 +1,22 @@
+{
+  "method": "Optuna TPE with complete-candidate GroupKFold validation",
+  "model": "logistic_regression",
+  "trials": 12,
+  "seed": 42,
+  "folds": 3,
+  "candidate_radius_m": 50.0,
+  "max_candidates": 4,
+  "training_negatives_per_observation": 1,
+  "validation_negative_sampling": null,
+  "student_negative_sampling": null,
+  "best_params": {
+    "C": 0.0010660012244038137,
+    "class_weight": null,
+    "max_iter": 700
+  },
+  "best_trial_value": 0.7336865386054022,
+  "baseline_cv_macro_f1": 0.7295715567631323,
+  "tuned_cv_macro_f1": 0.7336865386054022,
+  "selected_model_artifact": "tuned_logistic_regression",
+  "optimization_seconds": 24.675582900177687
+}

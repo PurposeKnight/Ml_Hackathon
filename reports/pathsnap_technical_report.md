@@ -24,10 +24,11 @@ validation and student-test candidate tables are complete. The student set conta
 candidate rows. No student observation had zero candidates in this run. The full corrected table is in
 `results/corrected_models/model_comparison.csv`.
 
-The selected model is Logistic Regression because it has the highest corrected CV Macro F1 (0.7295715568). It also
-has the strongest student Macro F1 and Top-1 accuracy in the complete-candidate evaluation. The prior sampled-student
-results under `results/models/` are preserved but are not directly comparable because their evaluation population was
-different.
+The baseline selected Logistic Regression by corrected CV Macro F1 (0.7295715568). Corrected Bayesian optimization
+then improved the grouped-CV score to 0.7336865386 (`C=0.0010660012`, no class weighting, `max_iter=700`). The tuned
+artifact is the selected deployment model; its complete-candidate student Macro F1 is 0.745579 and Top-1 is 0.764301.
+The prior sampled-student results under `results/models/` are preserved but are not directly comparable because their
+evaluation population was different.
 
 ## 4. Model-specific interpretation
 

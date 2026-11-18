@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def build() -> Path:
     output = ROOT / "reports" / "pathsnap_technical_report.pdf"
     comparison = pd.read_csv(ROOT / "results" / "corrected_models" / "model_comparison.csv")
+    tuned = pd.read_csv(ROOT / "results" / "corrected_models" / "corrected_logistic_tuned_vs_baseline.csv")
     styles = getSampleStyleSheet()
     styles.add(ParagraphStyle(name="ReportTitle", parent=styles["Title"], alignment=TA_CENTER, spaceAfter=18))
     styles.add(ParagraphStyle(name="Small", parent=styles["BodyText"], fontSize=8, leading=10))
@@ -38,7 +39,8 @@ def build() -> Path:
         data.append([str(row["model"]).replace("_", " ").title(), f"{row['cv_macro_f1']:.6f}", f"{row['macro_f1']:.6f}", f"{row['top1_accuracy_all_observations']:.6f}", f"{row['log_loss']:.6f}", f"{row['inference_ms_per_candidate']:.6f}"])
     table = Table(data, repeatRows=1, colWidths=[1.35 * inch, .9 * inch, 1.05 * inch, 1.0 * inch, .75 * inch, .9 * inch])
     table.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#1f4e79")), ("TEXTCOLOR", (0, 0), (-1, 0), colors.white), ("GRID", (0, 0), (-1, -1), .25, colors.grey), ("FONTSIZE", (0, 0), (-1, -1), 7), ("ALIGN", (1, 1), (-1, -1), "RIGHT")]))
-    story.extend([table, Spacer(1, 8), Paragraph("Logistic Regression is selected by the highest corrected CV Macro F1 (0.7295715568). Student metrics support the choice but do not define it.", styles["BodyText"]), PageBreak()])
+    tuned_row = tuned.loc[tuned["model"].eq("tuned_logistic_regression")].iloc[0]
+    story.extend([table, Spacer(1, 8), Paragraph(f"Corrected Bayesian optimization improved Logistic Regression CV Macro F1 from {tuned.loc[tuned['model'].eq('baseline_logistic_regression'), 'cv_macro_f1'].iloc[0]:.6f} to {tuned_row['cv_macro_f1']:.6f}. The tuned artifact is selected; its student Macro F1 is {tuned_row['macro_f1']:.6f} and complete-candidate Top-1 is {tuned_row['top1_accuracy_all_observations']:.6f}.", styles["BodyText"]), PageBreak()])
     story.extend([Paragraph("4. HMM/Viterbi and limitations", styles["Heading2"]), Paragraph("Hidden states are candidate arc IDs. Emissions combine classifier probability with distance; transitions reward same-arc and directed-connected moves, while disconnected transitions receive a finite penalty. Empty candidate groups produce null outputs and reset decoding. Reference labels are a nearest-route-arc heuristic, so parallel roads, GPS noise, incomplete routes, and repeated arcs remain limitations. See docs/label_quality.md and results/corrected_models/label_quality.csv.", styles["BodyText"]), Spacer(1, 10)])
     for image_path, caption in [(ROOT / "results" / "corrected_models" / "model_comparison.png", "Corrected CV Macro F1 comparison"), (ROOT / "results" / "plots" / "gps_speed_distribution.png", "GPS speed distribution"), (ROOT / "results" / "plots" / "gps_matched_route_map.png", "Folium map screenshot; interactive HTML is committed separately")]:
         if image_path.exists():

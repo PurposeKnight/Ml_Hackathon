@@ -48,6 +48,20 @@ python -m pathsnap.ml_pipeline.corrected_experiment `
 The verified selected artifact is `results/corrected_models/selected_model.joblib`; its feature manifest is beside it.
 The prior artifacts under `pathsnap/ml_pipeline/artifacts/` and prior result CSVs remain available for comparison.
 
+Corrected Bayesian optimization for the selected Logistic Regression model is reproducible with:
+
+```powershell
+python -m pathsnap.ml_pipeline.corrected_optimization `
+  --data-root "Student folder\Student folder" `
+  --output-dir results\corrected_models `
+  --trials 12 `
+  --folds 3 `
+  --negatives-per-observation 1 `
+  --max-candidates 4
+```
+
+Its trial log and tuned-vs-baseline comparison are saved beside the corrected model results.
+
 ## API
 
 Use the corrected artifact explicitly when starting the service:
