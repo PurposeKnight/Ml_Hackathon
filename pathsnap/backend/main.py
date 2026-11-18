@@ -5,6 +5,7 @@ from __future__ import annotations
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import Settings
@@ -38,6 +39,17 @@ def status(request: Request) -> StatusResponse:
 @app.get("/api/trips", response_model=list[str])
 def trips(request: Request) -> list[str]:
     return request.app.state.model_service.available_trips()
+
+
+@app.get("/api/trips/{trip_id}/map", response_class=HTMLResponse)
+def trip_map(trip_id: str, request: Request) -> HTMLResponse:
+    try:
+        html = request.app.state.model_service.folium_map_html(trip_id)
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail="Unknown trip ID") from exc
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail="Map generation failed") from exc
+    return HTMLResponse(content=html)
 
 
 @app.post("/api/predict", response_model=PredictResponse)

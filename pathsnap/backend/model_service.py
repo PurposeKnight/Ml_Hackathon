@@ -14,6 +14,7 @@ from pathsnap.data_pipeline.loaders import DatasetLayout, load_trip
 from pathsnap.data_pipeline.road_graph import RoadGraph, unproject_xy
 from pathsnap.route_decoder.hmm import log_emission_probability, log_transition_probability
 from pathsnap.route_decoder.viterbi import viterbi_decode
+from pathsnap.visualization.folium_maps import create_trip_map
 
 
 class ModelService:
@@ -68,4 +69,17 @@ class ModelService:
             "metrics": {"accuracy": None, "route_continuity": None},
             "inference_time_ms": (time.perf_counter() - started) * 1000,
         }
+
+    def folium_map_html(self, trip_id: str) -> str:
+        """Render an inference-only Folium map with no reference-route data."""
+        prediction = self.predict(trip_id)
+        layout = DatasetLayout(self.data_root)
+        partition = "evaluator_test" if "evaluator_test" in layout.partitions() else "student_test"
+        files = next((item for item in layout.discover(partition) if item.trip_id == trip_id), None)
+        if files is None:
+            raise KeyError(trip_id)
+        trip = load_trip(files, include_route=False)
+        graph = RoadGraph.from_trip(trip)
+        fmap = create_trip_map(trip, graph, predicted_segments=prediction["predicted_segments"])
+        return fmap.get_root().render()
 
