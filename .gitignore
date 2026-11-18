@@ -1,9 +1,17 @@
-# Git ignore for PathSnap
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.venv/
+pathsnap/ml_pipeline/artifacts/*.joblib
+results/**/*.html
 
-# Evaluator ground truth and datasets (NEVER commit to git)
+# PathSnap Datasets & Ground Truth (NEVER commit to git)
 Student folder/
 student_test/
 train/
+data/
 *.route
 *.track
 *.arcs
@@ -17,13 +25,10 @@ train/
 *.pem
 *.key
 
-# Dependencies and build outputs
+# Frontend dependencies and build outputs
 node_modules/
 dist/
 dist-ssr/
-__pycache__/
-*.pyc
-.pytest_cache/
 coverage/
 
 # OS and IDE files
@@ -32,4 +37,3 @@ Thumbs.db
 .vscode/
 .idea/
 *.log
-
