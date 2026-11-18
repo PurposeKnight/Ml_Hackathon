@@ -35,6 +35,6 @@ def model_factories(seed: int = 42) -> dict[str, Any]:
         ),
         "mlp": Pipeline([
             ("scale", StandardScaler()),
-            ("model", MLPClassifier(hidden_layer_sizes=(32, 16), early_stopping=True, max_iter=60, random_state=seed)),
+            ("model", MLPClassifier(hidden_layer_sizes=(8,), early_stopping=False, max_iter=20, random_state=seed)),
         ]),
     }
