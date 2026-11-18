@@ -6,5 +6,7 @@ __pycache__/
 .env
 Student folder/
 data/
-pathsnap/ml_pipeline/artifacts/*.joblib
+pathsnap/ml_pipeline/artifacts/*
+!pathsnap/ml_pipeline/artifacts/final_model.joblib
+!pathsnap/ml_pipeline/artifacts/final_model.joblib.json
 results/**/*.html
