@@ -25,7 +25,7 @@ from pathsnap.data_pipeline.road_graph import RoadGraph
 from pathsnap.ml_pipeline.models import model_factories
 
 
-def build_dataset(root: Path, partition: str, radius_m: float = 50.0, max_candidates: int = 8) -> pd.DataFrame:
+def build_dataset(root: Path, partition: str, radius_m: float = 50.0, max_candidates: int = 8, negatives_per_observation: int = 3) -> pd.DataFrame:
     rows: list[dict[str, float | int | str]] = []
     for files in DatasetLayout(root).discover(partition, require_route=True):
         trip = load_trip(files, include_route=True)
@@ -38,7 +38,13 @@ def build_dataset(root: Path, partition: str, radius_m: float = 50.0, max_candid
     frame = pd.DataFrame(rows)
     if frame.empty:
         raise ValueError(f"No candidate rows found for partition {partition}")
-    return frame
+    if negatives_per_observation < 0:
+        raise ValueError("negatives_per_observation must be non-negative")
+    # Keep all positives and a deterministic rank-ordered negative sample per
+    # observation. This preserves the ranking task while keeping KNN tractable.
+    frame["_negative_order"] = frame.groupby(["trip_id", "observation_id"])["target"].transform(lambda values: (values == 0).cumsum())
+    selected = (frame["target"] == 1) | (frame["_negative_order"] <= negatives_per_observation)
+    return frame.loc[selected].drop(columns="_negative_order").reset_index(drop=True)
 
 
 def _predict_positive(model, values: np.ndarray) -> np.ndarray:
@@ -69,9 +75,9 @@ def evaluate_model(model, frame: pd.DataFrame, values: np.ndarray) -> dict[str, 
     }
 
 
-def run_experiment(root: Path, output_dir: Path, seed: int = 42, folds: int = 5) -> pd.DataFrame:
-    train = build_dataset(root, "train")
-    student = build_dataset(root, "student_test")
+def run_experiment(root: Path, output_dir: Path, seed: int = 42, folds: int = 5, negatives_per_observation: int = 3) -> pd.DataFrame:
+    train = build_dataset(root, "train", negatives_per_observation=negatives_per_observation)
+    student = build_dataset(root, "student_test", negatives_per_observation=negatives_per_observation)
     values_train = train.loc[:, FEATURE_NAMES].to_numpy(dtype=float)
     values_student = student.loc[:, FEATURE_NAMES].to_numpy(dtype=float)
     groups = train["trip_id"].to_numpy()
@@ -93,7 +99,7 @@ def run_experiment(root: Path, output_dir: Path, seed: int = 42, folds: int = 5)
     output_dir.mkdir(parents=True, exist_ok=True)
     result = pd.DataFrame(records)
     result.to_csv(output_dir / "model_comparison.csv", index=False)
-    (output_dir / "experiment_config.json").write_text(json.dumps({"seed": seed, "folds": folds, "feature_names": FEATURE_NAMES}, indent=2), encoding="utf-8")
+    (output_dir / "experiment_config.json").write_text(json.dumps({"seed": seed, "folds": folds, "feature_names": FEATURE_NAMES, "negatives_per_observation": negatives_per_observation}, indent=2), encoding="utf-8")
     return result
 
 

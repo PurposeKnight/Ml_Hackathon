@@ -25,7 +25,7 @@ def model_factories(seed: int = 42) -> dict[str, Any]:
         ]),
         "knn": Pipeline([
             ("scale", StandardScaler()),
-            ("model", KNeighborsClassifier(n_neighbors=15, weights="distance")),
+            ("model", KNeighborsClassifier(n_neighbors=7, weights="distance", n_jobs=-1)),
         ]),
         "random_forest": RandomForestClassifier(
             n_estimators=150, min_samples_leaf=2, n_jobs=-1, class_weight="balanced_subsample", random_state=seed
