@@ -1,8 +1,42 @@
+# Python
 __pycache__/
 *.py[cod]
 .pytest_cache/
 .ruff_cache/
 .venv/
+pathsnap/ml_pipeline/artifacts/*.joblib
+results/**/*.html
+
+# PathSnap Datasets & Ground Truth (NEVER commit to git)
+Student folder/
+student_test/
+train/
+data/
+*.route
+*.track
+*.arcs
+*.nodes
+*.parquet
+*.csv
+
+# Environment and sensitive keys
+.env
+.env.*.local
+*.pem
+*.key
+
+# Frontend dependencies and build outputs
+node_modules/
+dist/
+dist-ssr/
+coverage/
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
 .env
 Student folder/
 evaluator_test/

@@ -1,0 +1,531 @@
+import React, { useEffect, useRef, useState } from 'react';
+import L from 'leaflet';
+import { Maximize2, Map, Code, Layers, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { LatLngCoord, GPSObservation } from '../types/api';
+import { computeBoundingBox, calculateRouteLengthKm } from '../utils/coordinates';
+import { getBackendBaseUrl } from '../api/client';
+
+interface RouteMapProps {
+  gpsCoordinates: GPSObservation[];
+  predictedRouteCoordinates: LatLngCoord[];
+  roadNetworkCoordinates?: LatLngCoord[][];
+  foliumHtml?: string | null;
+  tripId: string | null;
+  hasPredicted?: boolean;
+}
+
+export const RouteMap: React.FC<RouteMapProps> = ({
+  gpsCoordinates,
+  predictedRouteCoordinates,
+  roadNetworkCoordinates = [],
+  tripId,
+  hasPredicted,
+}) => {
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+
+  const API_BASE_URL = getBackendBaseUrl();
+  const selectedTripId = tripId || '';
+  const isPredictionRequested = Boolean(
+    hasPredicted !== undefined
+      ? hasPredicted
+      : gpsCoordinates.length > 0 || predictedRouteCoordinates.length > 0
+  );
+
+  const [isIframeLoading, setIsIframeLoading] = useState(true);
+  const [iframeError, setIframeError] = useState<string | null>(null);
+  const [iframeKey, setIframeKey] = useState(0);
+
+  // Layer groups
+  const gpsLayerGroupRef = useRef<L.LayerGroup | null>(null);
+  const routeLayerGroupRef = useRef<L.LayerGroup | null>(null);
+  const roadNetworkLayerGroupRef = useRef<L.LayerGroup | null>(null);
+  const markersLayerGroupRef = useRef<L.LayerGroup | null>(null);
+
+  // Layer visibility state
+  const [showGps, setShowGps] = useState(true);
+  const [showPredictedRoute, setShowPredictedRoute] = useState(true);
+  const [showRoadNetwork, setShowRoadNetwork] = useState(true);
+
+  // Tab mode: 'leaflet' or 'folium'
+  const [activeTab, setActiveTab] = useState<'leaflet' | 'folium'>('leaflet');
+
+  // Reset loading and error when trip changes or prediction is made
+  useEffect(() => {
+    if (selectedTripId) {
+      setIsIframeLoading(true);
+      setIframeError(null);
+    }
+  }, [selectedTripId, isPredictionRequested]);
+
+  // Check if Folium map endpoint responds when tab is switched
+  useEffect(() => {
+    if (activeTab !== 'folium' || !isPredictionRequested || !selectedTripId) return;
+
+    const controller = new AbortController();
+    const mapUrl = `${API_BASE_URL}/api/trips/${selectedTripId}/map`;
+
+    fetch(mapUrl, { method: 'GET', signal: controller.signal })
+      .then(async (res) => {
+        if (!res.ok) {
+          setIframeError(`Laptop 1 backend endpoint not found (${mapUrl} returned HTTP ${res.status}: ${res.statusText}). Laptop 1 needs to add the /api/trips/{trip_id}/map route.`);
+          setIsIframeLoading(false);
+        } else {
+          const contentType = res.headers.get('content-type') || '';
+          if (contentType.includes('application/json')) {
+            const data = await res.json().catch(() => ({}));
+            if (data && data.detail) {
+              setIframeError(`Laptop 1 returned: "${data.detail}". The Folium map route is not yet active on Laptop 1.`);
+              setIsIframeLoading(false);
+            }
+          }
+        }
+      })
+      .catch((_err) => {
+        // If fetch fails (e.g. CORS block from browser), the iframe itself will attempt direct rendering
+      });
+
+    return () => controller.abort();
+  }, [activeTab, isPredictionRequested, selectedTripId, API_BASE_URL, iframeKey]);
+
+  // When switching to 'leaflet', immediately refresh Leaflet size and bounds so it never renders blank
+  useEffect(() => {
+    if (activeTab === 'leaflet' && mapInstanceRef.current) {
+      const timer = setTimeout(() => {
+        const map = mapInstanceRef.current;
+        if (!map) return;
+        map.invalidateSize();
+
+        const points: LatLngCoord[] = [
+          ...predictedRouteCoordinates,
+          ...gpsCoordinates.map((c) => [c[0], c[1]] as LatLngCoord),
+        ];
+        if (points.length > 0) {
+          const bbox = computeBoundingBox(points);
+          if (bbox) {
+            map.fitBounds(bbox, { padding: [40, 40], maxZoom: 16 });
+          }
+        }
+      }, 50);
+
+      return () => clearTimeout(timer);
+    }
+  }, [activeTab, predictedRouteCoordinates, gpsCoordinates]);
+
+  // Initialize Map
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+
+    if (!mapInstanceRef.current) {
+      const map = L.map(mapContainerRef.current, {
+        center: [54.96, 56.25],
+        zoom: 13,
+        zoomControl: true,
+      });
+
+      // Standard OpenStreetMap tiles (No API key required)
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+        maxZoom: 19,
+      }).addTo(map);
+
+      gpsLayerGroupRef.current = L.layerGroup().addTo(map);
+      routeLayerGroupRef.current = L.layerGroup().addTo(map);
+      roadNetworkLayerGroupRef.current = L.layerGroup().addTo(map);
+      markersLayerGroupRef.current = L.layerGroup().addTo(map);
+
+      mapInstanceRef.current = map;
+    }
+
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []);
+
+  // Sync layer visibility
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    if (gpsLayerGroupRef.current) {
+      if (showGps && !map.hasLayer(gpsLayerGroupRef.current)) {
+        map.addLayer(gpsLayerGroupRef.current);
+      } else if (!showGps && map.hasLayer(gpsLayerGroupRef.current)) {
+        map.removeLayer(gpsLayerGroupRef.current);
+      }
+    }
+
+    if (routeLayerGroupRef.current) {
+      if (showPredictedRoute && !map.hasLayer(routeLayerGroupRef.current)) {
+        map.addLayer(routeLayerGroupRef.current);
+      } else if (!showPredictedRoute && map.hasLayer(routeLayerGroupRef.current)) {
+        map.removeLayer(routeLayerGroupRef.current);
+      }
+    }
+
+    if (roadNetworkLayerGroupRef.current) {
+      if (showRoadNetwork && !map.hasLayer(roadNetworkLayerGroupRef.current)) {
+        map.addLayer(roadNetworkLayerGroupRef.current);
+      } else if (!showRoadNetwork && map.hasLayer(roadNetworkLayerGroupRef.current)) {
+        map.removeLayer(roadNetworkLayerGroupRef.current);
+      }
+    }
+  }, [showGps, showPredictedRoute, showRoadNetwork]);
+
+  // Update map contents whenever coordinates change
+  useEffect(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+
+    // Clear existing layers
+    gpsLayerGroupRef.current?.clearLayers();
+    routeLayerGroupRef.current?.clearLayers();
+    roadNetworkLayerGroupRef.current?.clearLayers();
+    markersLayerGroupRef.current?.clearLayers();
+
+    const allPointsForBounds: LatLngCoord[] = [];
+
+    // 1. Draw Road Network (if available, gray lines)
+    if (roadNetworkCoordinates.length > 0 && roadNetworkLayerGroupRef.current) {
+      roadNetworkCoordinates.forEach((seg) => {
+        if (seg.length >= 2) {
+          L.polyline(seg, {
+            color: '#64748b',
+            weight: 2,
+            opacity: 0.6,
+          }).addTo(roadNetworkLayerGroupRef.current!);
+        }
+      });
+    }
+
+    // 2. Draw GPS Observation Markers (Blue dots)
+    if (gpsCoordinates.length > 0 && gpsLayerGroupRef.current) {
+      gpsCoordinates.forEach((obs, idx) => {
+        const lat = obs[0];
+        const lng = obs[1];
+        const ts = obs[2];
+        allPointsForBounds.push([lat, lng]);
+
+        const marker = L.circleMarker([lat, lng], {
+          radius: 4,
+          fillColor: '#3b82f6',
+          color: '#1d4ed8',
+          weight: 1,
+          opacity: 0.9,
+          fillOpacity: 0.7,
+        });
+
+        marker.bindTooltip(
+          `<strong>GPS Point #${idx + 1}</strong><br/>Lat: ${lat.toFixed(5)}<br/>Lon: ${lng.toFixed(5)}${ts ? `<br/>Time: ${ts}` : ''}`,
+          { direction: 'top' }
+        );
+
+        marker.addTo(gpsLayerGroupRef.current!);
+      });
+    }
+
+    // 3. Draw Predicted Route Polyline (Vibrant Red/Purple)
+    if (predictedRouteCoordinates.length > 0 && routeLayerGroupRef.current) {
+      predictedRouteCoordinates.forEach((pt) => allPointsForBounds.push(pt));
+
+      const polyline = L.polyline(predictedRouteCoordinates, {
+        color: '#e11d48', // High-contrast Red/Rose
+        weight: 5,
+        opacity: 0.9,
+        lineCap: 'round',
+        lineJoin: 'round',
+      });
+
+      polyline.bindPopup(
+        `<strong>PathSnap Decoded Trajectory</strong><br/>Segments: ${predictedRouteCoordinates.length} nodes<br/>Est. Distance: ${calculateRouteLengthKm(predictedRouteCoordinates).toFixed(2)} km`
+      );
+
+      polyline.addTo(routeLayerGroupRef.current!);
+
+      // Start and Finish Markers
+      if (markersLayerGroupRef.current && predictedRouteCoordinates.length >= 2) {
+        const startPoint = predictedRouteCoordinates[0];
+        const endPoint = predictedRouteCoordinates[predictedRouteCoordinates.length - 1];
+
+        // Start Icon
+        const startIcon = L.divIcon({
+          className: 'custom-start-marker',
+          html: `<div style="background-color: #10b981; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.4);">S</div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        });
+
+        // End Icon
+        const endIcon = L.divIcon({
+          className: 'custom-end-marker',
+          html: `<div style="background-color: #e11d48; color: white; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.4);">E</div>`,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        });
+
+        L.marker(startPoint, { icon: startIcon }).bindTooltip('Trip Start').addTo(markersLayerGroupRef.current);
+        L.marker(endPoint, { icon: endIcon }).bindTooltip('Trip Destination').addTo(markersLayerGroupRef.current);
+      }
+    }
+
+    // Auto-fit bounds
+    if (allPointsForBounds.length > 0) {
+      const bbox = computeBoundingBox(allPointsForBounds);
+      if (bbox) {
+        map.fitBounds(bbox, { padding: [40, 40], maxZoom: 16 });
+      }
+    }
+
+    // Trigger map invalidation for container resizing
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+  }, [gpsCoordinates, predictedRouteCoordinates, roadNetworkCoordinates]);
+
+  const fitCurrentBounds = () => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
+    const points: LatLngCoord[] = [
+      ...predictedRouteCoordinates,
+      ...gpsCoordinates.map((c) => [c[0], c[1]] as LatLngCoord),
+    ];
+    const bbox = computeBoundingBox(points);
+    if (bbox) {
+      map.fitBounds(bbox, { padding: [40, 40], maxZoom: 16 });
+    }
+  };
+
+  const hasData = gpsCoordinates.length > 0 || predictedRouteCoordinates.length > 0;
+
+  return (
+    <div className="bg-slate-800 rounded-xl border border-slate-700 shadow-sm overflow-hidden flex flex-col min-h-[660px]">
+      {/* Top Map Toolbar */}
+      <div className="bg-slate-900/80 px-4 py-2.5 border-b border-slate-700/80 flex flex-wrap items-center justify-between gap-2 z-10">
+        <div className="flex items-center space-x-2">
+          {/* View Tab Buttons */}
+          <div className="bg-slate-800 p-0.5 rounded-lg border border-slate-700 flex items-center">
+            <button
+              onClick={() => setActiveTab('leaflet')}
+              className={`px-3 py-1 rounded-md text-xs font-medium flex items-center space-x-1.5 transition-colors ${
+                activeTab === 'leaflet'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Map className="h-3.5 w-3.5" />
+              <span>Interactive Leaflet</span>
+            </button>
+            <button
+              onClick={() => setActiveTab('folium')}
+              className={`px-3 py-1 rounded-md text-xs font-medium flex items-center space-x-1.5 transition-colors ${
+                activeTab === 'folium'
+                  ? 'bg-indigo-600 text-white shadow-sm'
+                  : 'text-slate-400 hover:text-slate-200'
+              }`}
+            >
+              <Code className="h-3.5 w-3.5" />
+              <span>Folium Map View</span>
+            </button>
+          </div>
+
+          {tripId && (
+            <span className="text-xs text-slate-400 hidden sm:inline">
+              Viewing: <strong className="text-slate-200 font-mono">{tripId}</strong>
+            </span>
+          )}
+        </div>
+
+        {/* Layer Controls & Actions (only for Leaflet view) */}
+        {activeTab === 'leaflet' && (
+          <div className="flex items-center space-x-3 text-xs">
+            <div className="flex items-center space-x-2 bg-slate-800/80 px-2.5 py-1 rounded-lg border border-slate-700">
+              <Layers className="h-3.5 w-3.5 text-slate-400 mr-0.5" />
+
+              {/* GPS Points Toggle */}
+              <label className="flex items-center space-x-1 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={showGps}
+                  onChange={(e) => setShowGps(e.target.checked)}
+                  className="rounded bg-slate-900 border-slate-600 text-blue-500 focus:ring-0 text-xs"
+                />
+                <span className="flex items-center text-blue-400 font-medium">
+                  <span className="h-2 w-2 rounded-full bg-blue-500 mr-1"></span>
+                  GPS ({gpsCoordinates.length})
+                </span>
+              </label>
+
+              <span className="text-slate-600">|</span>
+
+              {/* Predicted Route Toggle */}
+              <label className="flex items-center space-x-1 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  checked={showPredictedRoute}
+                  onChange={(e) => setShowPredictedRoute(e.target.checked)}
+                  className="rounded bg-slate-900 border-slate-600 text-rose-500 focus:ring-0 text-xs"
+                />
+                <span className="flex items-center text-rose-400 font-medium">
+                  <span className="h-2 w-2 rounded-full bg-rose-500 mr-1"></span>
+                  Predicted Route
+                </span>
+              </label>
+
+              {roadNetworkCoordinates.length > 0 && (
+                <>
+                  <span className="text-slate-600">|</span>
+                  <label className="flex items-center space-x-1 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={showRoadNetwork}
+                      onChange={(e) => setShowRoadNetwork(e.target.checked)}
+                      className="rounded bg-slate-900 border-slate-600 text-slate-400 focus:ring-0 text-xs"
+                    />
+                    <span className="text-slate-400">Roads</span>
+                  </label>
+                </>
+              )}
+            </div>
+
+            {hasData && (
+              <button
+                onClick={fitCurrentBounds}
+                className="p-1.5 text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 rounded-lg border border-slate-700 transition-colors"
+                title="Fit to Route Bounds"
+              >
+                <Maximize2 className="h-3.5 w-3.5" />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Map View Container */}
+      <div className="relative w-full h-[600px] bg-slate-950 overflow-hidden">
+        {/* Leaflet Map Div - Always mounted and sized */}
+        <div
+          ref={mapContainerRef}
+          className="w-full h-full"
+          style={{ minHeight: '600px' }}
+        />
+
+        {/* Folium HTML Iframe View - Rendered as overlay on top of Leaflet when active */}
+        {activeTab === 'folium' && (
+          <div className="absolute inset-0 z-20 w-full h-full flex flex-col bg-slate-950">
+            {!isPredictionRequested || !selectedTripId ? (
+              <div className="flex flex-col items-center justify-center flex-1 min-h-[500px] text-center p-6 text-slate-400">
+                <Code className="h-10 w-10 text-slate-600 mb-3" />
+                <h4 className="text-sm font-semibold text-slate-300">Awaiting Prediction</h4>
+                <p className="text-xs max-w-sm mt-1">
+                  Please select an evaluation trip and click &ldquo;Run Prediction &amp; Reconstruction&rdquo; to load the Folium map from Laptop 1.
+                </p>
+                <button
+                  onClick={() => setActiveTab('leaflet')}
+                  className="mt-4 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium"
+                >
+                  Return to Leaflet View
+                </button>
+              </div>
+            ) : (
+              <div className="relative w-full flex-1 min-h-[600px]">
+                {/* Loading State */}
+                {isIframeLoading && !iframeError && (
+                  <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center text-center p-4">
+                    <Loader2 className="h-8 w-8 text-indigo-400 animate-spin mb-2" />
+                    <p className="text-sm font-medium text-slate-200">Loading Folium Map from Laptop 1...</p>
+                    <p className="text-xs text-slate-400 mt-1 font-mono">{`${API_BASE_URL}/api/trips/${selectedTripId}/map`}</p>
+                  </div>
+                )}
+
+                {/* Error State */}
+                {iframeError ? (
+                  <div className="absolute inset-0 bg-slate-900 z-10 flex flex-col items-center justify-center text-center p-6 text-slate-300">
+                    <AlertCircle className="h-10 w-10 text-rose-500 mb-3" />
+                    <h4 className="text-sm font-semibold text-rose-300">Unable to Load Folium Map</h4>
+                    <p className="text-xs text-slate-400 max-w-md mt-1 mb-4 leading-relaxed">
+                      {iframeError}
+                    </p>
+                    <div className="flex items-center space-x-3">
+                      <button
+                        onClick={() => {
+                          setIframeError(null);
+                          setIsIframeLoading(true);
+                          setIframeKey((prev) => prev + 1);
+                        }}
+                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium flex items-center space-x-1"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                        <span>Retry</span>
+                      </button>
+                      <button
+                        onClick={() => setActiveTab('leaflet')}
+                        className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-medium"
+                      >
+                        Switch to Leaflet Map
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* Folium iframe */}
+                <iframe
+                  key={`${selectedTripId}-${iframeKey}`}
+                  title="Folium route map"
+                  src={`${API_BASE_URL}/api/trips/${selectedTripId}/map`}
+                  style={{ width: "100%", height: "600px", border: 0 }}
+                  onLoad={() => setIsIframeLoading(false)}
+                  onError={() => {
+                    setIsIframeLoading(false);
+                    setIframeError(`Failed to load Folium map from Laptop 1 at ${API_BASE_URL}/api/trips/${selectedTripId}/map.`);
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Empty State Overlay */}
+        {!hasData && activeTab === 'leaflet' && (
+          <div className="absolute inset-0 bg-slate-900/70 backdrop-blur-sm flex flex-col items-center justify-center p-6 text-center pointer-events-none z-10">
+            <div className="h-12 w-12 rounded-2xl bg-slate-800 border border-slate-700 flex items-center justify-center mb-3 text-slate-500">
+              <Map className="h-6 w-6" />
+            </div>
+            <h3 className="text-sm font-semibold text-slate-200">Awaiting Prediction</h3>
+            <p className="text-xs text-slate-400 mt-1 max-w-sm">
+              Select one of the 10 evaluation trips from the dropdown above and click &ldquo;Run Prediction&rdquo; to visualize the reconstructed route.
+            </p>
+          </div>
+        )}
+
+        {/* Floating Map Legend (Bottom Left) */}
+        {activeTab === 'leaflet' && hasData && (
+          <div className="absolute bottom-4 left-4 z-[400] bg-slate-900/90 backdrop-blur-md p-3 rounded-xl border border-slate-700/80 shadow-lg text-[11px] space-y-1.5">
+            <div className="font-semibold text-slate-200 border-b border-slate-700/60 pb-1 mb-1">
+              Route Legend
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="h-2.5 w-2.5 rounded-full bg-blue-500 ring-2 ring-blue-700"></span>
+              <span className="text-slate-300">Raw GPS Observations</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="h-1.5 w-4 rounded-full bg-rose-500"></span>
+              <span className="text-slate-300">HMM-Decoded Route</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="h-4 w-4 rounded-full bg-emerald-500 text-white text-[9px] font-bold flex items-center justify-center">S</span>
+              <span className="text-slate-300">Start Point</span>
+            </div>
+            <div className="flex items-center space-x-2">
+              <span className="h-4 w-4 rounded-full bg-rose-600 text-white text-[9px] font-bold flex items-center justify-center">E</span>
+              <span className="text-slate-300">Destination Point</span>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
