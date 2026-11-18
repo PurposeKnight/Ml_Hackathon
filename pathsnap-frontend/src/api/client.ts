@@ -25,7 +25,7 @@ export function getBackendBaseUrl(): string {
     return envUrl.trim().replace(/\/+$/, '');
   }
 
-  return 'http://localhost:8000';
+  return 'http://10.0.15.42:8000';
 }
 
 export function setBackendBaseUrl(url: string): void {
@@ -71,7 +71,7 @@ export async function apiRequest<T>(
   endpoint: string,
   options: RequestOptions = {}
 ): Promise<T> {
-  const { timeoutMs = 15000, ...fetchOptions } = options;
+  const { timeoutMs = 25000, ...fetchOptions } = options;
   const baseUrl = getBackendBaseUrl();
   const url = `${baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
 
@@ -85,16 +85,43 @@ export async function apiRequest<T>(
     fetchOptions.signal.addEventListener('abort', () => controller.abort());
   }
 
+  const headers = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    ...fetchOptions.headers,
+  };
+
   try {
-    const response = await fetch(url, {
-      ...fetchOptions,
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        ...fetchOptions.headers,
-      },
-    });
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        ...fetchOptions,
+        signal: controller.signal,
+        headers,
+      });
+    } catch (primaryErr: unknown) {
+      // If direct request failed due to CORS or network restriction in the browser,
+      // and we are on a browser page with Vite proxy available, attempt the relative endpoint
+      if (
+        typeof window !== 'undefined' &&
+        baseUrl &&
+        primaryErr instanceof Error &&
+        (primaryErr.message.includes('Failed to fetch') || primaryErr.message.includes('NetworkError'))
+      ) {
+        const proxyUrl = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+        try {
+          response = await fetch(proxyUrl, {
+            ...fetchOptions,
+            signal: controller.signal,
+            headers,
+          });
+        } catch {
+          throw primaryErr;
+        }
+      } else {
+        throw primaryErr;
+      }
+    }
 
     clearTimeout(timeoutId);
 

@@ -146,6 +146,9 @@ export const BackendStatus: React.FC<BackendStatusProps> = ({
 
       {status === 'connected' && details && (
         <div className="mt-2 text-[11px] text-slate-400 flex flex-wrap gap-x-4 gap-y-1">
+          {details.ready !== undefined && (
+            <span>Backend Ready: <strong className={details.ready ? 'text-emerald-400' : 'text-amber-400'}>{details.ready ? 'Yes' : 'No'}</strong></span>
+          )}
           {details.model_loaded !== undefined && (
             <span>Model Loaded: <strong className={details.model_loaded ? 'text-emerald-400' : 'text-amber-400'}>{details.model_loaded ? 'Yes' : 'No'}</strong></span>
           )}
@@ -153,7 +156,7 @@ export const BackendStatus: React.FC<BackendStatusProps> = ({
             <span>HMM Ready: <strong className={details.hmm_ready ? 'text-emerald-400' : 'text-amber-400'}>{details.hmm_ready ? 'Yes' : 'No'}</strong></span>
           )}
           {details.version && (
-            <span>Backend Version: <strong className="text-slate-200">{details.version}</strong></span>
+            <span>Version: <strong className="text-slate-200">{details.version}</strong></span>
           )}
         </div>
       )}

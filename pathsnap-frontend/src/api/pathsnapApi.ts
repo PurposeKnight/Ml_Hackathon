@@ -11,11 +11,32 @@ import {
  */
 export async function checkBackendHealth(): Promise<{ data: HealthResponse; latencyMs: number }> {
   const start = performance.now();
-  const data = await apiRequest<HealthResponse>('/health', {
+  const healthData = await apiRequest<HealthResponse>('/health', {
     method: 'GET',
     timeoutMs: 4000,
   });
+
+  // Also query /api/status if available
+  let statusData: Partial<HealthResponse> = {};
+  try {
+    const s = await apiRequest<Record<string, unknown>>('/api/status', {
+      method: 'GET',
+      timeoutMs: 3000,
+    });
+    statusData = {
+      ready: Boolean(s.ready),
+      model_loaded: Boolean(s.model_loaded),
+      model_version: s.model_version !== undefined ? String(s.model_version) : undefined,
+    };
+  } catch {
+    // /api/status is optional
+  }
+
   const latencyMs = Math.round(performance.now() - start);
+  const data: HealthResponse = {
+    ...healthData,
+    ...statusData,
+  };
   return { data, latencyMs };
 }
 

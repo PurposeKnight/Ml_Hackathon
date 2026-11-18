@@ -8,6 +8,8 @@ export interface HealthResponse {
   version?: string;
   model_loaded?: boolean;
   hmm_ready?: boolean;
+  ready?: boolean;
+  model_version?: number | string;
   timestamp?: number | string;
 }
 
