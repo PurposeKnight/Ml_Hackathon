@@ -75,7 +75,7 @@ def evaluate_model(model, frame: pd.DataFrame, values: np.ndarray) -> dict[str, 
     }
 
 
-def run_experiment(root: Path, output_dir: Path, seed: int = 42, folds: int = 5, negatives_per_observation: int = 3) -> pd.DataFrame:
+def run_experiment(root: Path, output_dir: Path, seed: int = 42, folds: int = 3, negatives_per_observation: int = 3) -> pd.DataFrame:
     train = build_dataset(root, "train", negatives_per_observation=negatives_per_observation)
     student = build_dataset(root, "student_test", negatives_per_observation=negatives_per_observation)
     values_train = train.loc[:, FEATURE_NAMES].to_numpy(dtype=float)
@@ -107,8 +107,9 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-root", required=True, type=Path)
     parser.add_argument("--output-dir", default="results/models", type=Path)
+    parser.add_argument("--folds", default=3, type=int)
     args = parser.parse_args()
-    print(run_experiment(args.data_root, args.output_dir).to_string(index=False))
+    print(run_experiment(args.data_root, args.output_dir, folds=args.folds).to_string(index=False))
 
 
 if __name__ == "__main__":

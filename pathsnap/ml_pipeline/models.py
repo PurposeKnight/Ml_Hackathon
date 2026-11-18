@@ -28,13 +28,13 @@ def model_factories(seed: int = 42) -> dict[str, Any]:
             ("model", KNeighborsClassifier(n_neighbors=7, weights="distance", n_jobs=-1)),
         ]),
         "random_forest": RandomForestClassifier(
-            n_estimators=150, min_samples_leaf=2, n_jobs=-1, class_weight="balanced_subsample", random_state=seed
+            n_estimators=40, min_samples_leaf=2, n_jobs=-1, class_weight="balanced_subsample", random_state=seed
         ),
         "hist_gradient_boosting": HistGradientBoostingClassifier(
             max_iter=150, learning_rate=0.08, max_leaf_nodes=31, random_state=seed
         ),
         "mlp": Pipeline([
             ("scale", StandardScaler()),
-            ("model", MLPClassifier(hidden_layer_sizes=(32, 16), early_stopping=True, max_iter=120, random_state=seed)),
+            ("model", MLPClassifier(hidden_layer_sizes=(32, 16), early_stopping=True, max_iter=60, random_state=seed)),
         ]),
     }
