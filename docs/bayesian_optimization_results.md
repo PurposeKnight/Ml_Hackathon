@@ -24,3 +24,14 @@ candidate configuration as the baseline; evaluator data is not used.
 
 Raw evidence: [optuna_trials.csv](../results/optimization/optuna_trials.csv) and
 [best_params.json](../results/optimization/best_params.json).
+
+The final refit comparison on the student-test partition was:
+
+| Model | Top-1 accuracy | Macro F1 | Log loss |
+|---|---:|---:|---:|
+| Untuned HGB | 0.849269 | 0.820325 | 0.385197 |
+| Tuned HGB | **0.850104** | **0.821476** | **0.384484** |
+
+The exported tuned artifact is [final_model.joblib](../pathsnap/ml_pipeline/artifacts/final_model.joblib), with its
+feature and parameter manifest beside it. Machine-readable comparison is
+[tuned_vs_untuned_student.csv](../results/optimization/tuned_vs_untuned_student.csv).
