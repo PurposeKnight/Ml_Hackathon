@@ -48,7 +48,7 @@ def _predict_positive(model, values: np.ndarray) -> np.ndarray:
 
 
 def observation_top1(frame: pd.DataFrame, scores: np.ndarray) -> tuple[float, float]:
-    work = frame[["trip_id", "observation_id", "target"]].copy()
+    work = frame[["trip_id", "observation_id", "target", "candidate_miss"]].copy()
     work["score"] = scores
     best = work.loc[work.groupby(["trip_id", "observation_id"])["score"].idxmax()]
     return float(best["target"].mean()), float(work["candidate_miss"].groupby([work["trip_id"], work["observation_id"]]).first().mean())
