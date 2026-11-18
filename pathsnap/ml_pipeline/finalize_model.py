@@ -18,7 +18,7 @@ from pathsnap.ml_pipeline.train_models import build_dataset, evaluate_model
 
 def finalize(root: Path, results_dir: Path, artifact_path: Path, folds: int = 3) -> pd.DataFrame:
     train = build_dataset(root, "train", max_candidates=4, negatives_per_observation=1)
-    student = build_dataset(root, "student_test", max_candidates=4, negatives_per_observation=1)
+    student = build_dataset(root, "student_test", max_candidates=8, negatives_per_observation=None)
     values_train = train.loc[:, FEATURE_NAMES].to_numpy(dtype=float)
     values_student = student.loc[:, FEATURE_NAMES].to_numpy(dtype=float)
     best_params = json.loads((results_dir / "best_params.json").read_text(encoding="utf-8"))["best_params"]
