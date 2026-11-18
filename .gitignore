@@ -1,0 +1,35 @@
+# Git ignore for PathSnap
+
+# Evaluator ground truth and datasets (NEVER commit to git)
+Student folder/
+student_test/
+train/
+*.route
+*.track
+*.arcs
+*.nodes
+*.parquet
+*.csv
+
+# Environment and sensitive keys
+.env
+.env.*.local
+*.pem
+*.key
+
+# Dependencies and build outputs
+node_modules/
+dist/
+dist-ssr/
+__pycache__/
+*.pyc
+.pytest_cache/
+coverage/
+
+# OS and IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
+
