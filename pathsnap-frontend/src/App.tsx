@@ -128,6 +128,7 @@ export const App: React.FC = () => {
               roadNetworkCoordinates={predictionResult?.road_network_coordinates || []}
               foliumHtml={predictionResult?.folium_html || null}
               tripId={predictionResult?.trip_id || selectedTripId || null}
+              hasPredicted={Boolean(predictionResult)}
             />
           </div>
         </div>

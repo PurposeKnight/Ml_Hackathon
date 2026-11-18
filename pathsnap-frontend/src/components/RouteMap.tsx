@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
-import { Maximize2, Map, Code, Layers } from 'lucide-react';
+import { Maximize2, Map, Code, Layers, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { LatLngCoord, GPSObservation } from '../types/api';
 import { computeBoundingBox, calculateRouteLengthKm } from '../utils/coordinates';
+import { getBackendBaseUrl } from '../api/client';
 
 interface RouteMapProps {
   gpsCoordinates: GPSObservation[];
@@ -10,17 +11,30 @@ interface RouteMapProps {
   roadNetworkCoordinates?: LatLngCoord[][];
   foliumHtml?: string | null;
   tripId: string | null;
+  hasPredicted?: boolean;
 }
 
 export const RouteMap: React.FC<RouteMapProps> = ({
   gpsCoordinates,
   predictedRouteCoordinates,
   roadNetworkCoordinates = [],
-  foliumHtml,
   tripId,
+  hasPredicted,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
+
+  const API_BASE_URL = getBackendBaseUrl();
+  const selectedTripId = tripId || '';
+  const isPredictionRequested = Boolean(
+    hasPredicted !== undefined
+      ? hasPredicted
+      : gpsCoordinates.length > 0 || predictedRouteCoordinates.length > 0
+  );
+
+  const [isIframeLoading, setIsIframeLoading] = useState(true);
+  const [iframeError, setIframeError] = useState<string | null>(null);
+  const [iframeKey, setIframeKey] = useState(0);
 
   // Layer groups
   const gpsLayerGroupRef = useRef<L.LayerGroup | null>(null);
@@ -35,6 +49,35 @@ export const RouteMap: React.FC<RouteMapProps> = ({
 
   // Tab mode: 'leaflet' or 'folium'
   const [activeTab, setActiveTab] = useState<'leaflet' | 'folium'>('leaflet');
+
+  // Reset loading and error when trip changes or prediction is made
+  useEffect(() => {
+    if (selectedTripId) {
+      setIsIframeLoading(true);
+      setIframeError(null);
+    }
+  }, [selectedTripId, isPredictionRequested]);
+
+  // Check if Folium map endpoint responds when tab is switched
+  useEffect(() => {
+    if (activeTab !== 'folium' || !isPredictionRequested || !selectedTripId) return;
+
+    const controller = new AbortController();
+    const mapUrl = `${API_BASE_URL}/api/trips/${selectedTripId}/map`;
+
+    fetch(mapUrl, { method: 'GET', signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) {
+          setIframeError(`Laptop 1 returned HTTP ${res.status} (${res.statusText}) for Folium map at ${mapUrl}.`);
+          setIsIframeLoading(false);
+        }
+      })
+      .catch((_err) => {
+        // If fetch fails (e.g. CORS block from browser), the iframe itself will attempt direct rendering
+      });
+
+    return () => controller.abort();
+  }, [activeTab, isPredictionRequested, selectedTripId, API_BASE_URL, iframeKey]);
 
   // Initialize Map
   useEffect(() => {
@@ -225,7 +268,7 @@ export const RouteMap: React.FC<RouteMapProps> = ({
   const hasData = gpsCoordinates.length > 0 || predictedRouteCoordinates.length > 0;
 
   return (
-    <div className="bg-slate-800 rounded-xl border border-slate-700 shadow-sm overflow-hidden flex flex-col h-[560px]">
+    <div className="bg-slate-800 rounded-xl border border-slate-700 shadow-sm overflow-hidden flex flex-col min-h-[660px]">
       {/* Top Map Toolbar */}
       <div className="bg-slate-900/80 px-4 py-2.5 border-b border-slate-700/80 flex flex-wrap items-center justify-between gap-2 z-10">
         <div className="flex items-center space-x-2">
@@ -337,20 +380,13 @@ export const RouteMap: React.FC<RouteMapProps> = ({
 
         {/* Folium HTML Iframe View */}
         {activeTab === 'folium' && (
-          <div className="w-full h-full flex flex-col">
-            {foliumHtml ? (
-              <iframe
-                title="Folium Backend Map"
-                srcDoc={foliumHtml}
-                className="w-full h-full border-none bg-white"
-                sandbox="allow-scripts allow-same-origin"
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center p-6 text-slate-400">
+          <div className="w-full flex-1 flex flex-col relative bg-slate-950 min-h-[600px]">
+            {!isPredictionRequested || !selectedTripId ? (
+              <div className="flex flex-col items-center justify-center flex-1 min-h-[500px] text-center p-6 text-slate-400">
                 <Code className="h-10 w-10 text-slate-600 mb-3" />
-                <h4 className="text-sm font-semibold text-slate-300">Folium HTML Not Provided</h4>
+                <h4 className="text-sm font-semibold text-slate-300">Awaiting Prediction</h4>
                 <p className="text-xs max-w-sm mt-1">
-                  Laptop 1 backend did not include a pre-rendered Folium HTML string for this trip. The interactive Leaflet viewer is active and fully functional.
+                  Please select an evaluation trip and click &ldquo;Run Prediction &amp; Reconstruction&rdquo; to load the Folium map from Laptop 1.
                 </p>
                 <button
                   onClick={() => setActiveTab('leaflet')}
@@ -358,6 +394,60 @@ export const RouteMap: React.FC<RouteMapProps> = ({
                 >
                   Return to Leaflet View
                 </button>
+              </div>
+            ) : (
+              <div className="relative w-full flex-1 min-h-[600px]">
+                {/* Loading State */}
+                {isIframeLoading && !iframeError && (
+                  <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center text-center p-4">
+                    <Loader2 className="h-8 w-8 text-indigo-400 animate-spin mb-2" />
+                    <p className="text-sm font-medium text-slate-200">Loading Folium Map from Laptop 1...</p>
+                    <p className="text-xs text-slate-400 mt-1 font-mono">{`${API_BASE_URL}/api/trips/${selectedTripId}/map`}</p>
+                  </div>
+                )}
+
+                {/* Error State */}
+                {iframeError ? (
+                  <div className="absolute inset-0 bg-slate-900 z-10 flex flex-col items-center justify-center text-center p-6 text-slate-300">
+                    <AlertCircle className="h-10 w-10 text-rose-500 mb-3" />
+                    <h4 className="text-sm font-semibold text-rose-300">Unable to Load Folium Map</h4>
+                    <p className="text-xs text-slate-400 max-w-md mt-1 mb-4 leading-relaxed">
+                      {iframeError}
+                    </p>
+                    <div className="flex items-center space-x-3">
+                      <button
+                        onClick={() => {
+                          setIframeError(null);
+                          setIsIframeLoading(true);
+                          setIframeKey((prev) => prev + 1);
+                        }}
+                        className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-lg text-xs font-medium flex items-center space-x-1"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                        <span>Retry</span>
+                      </button>
+                      <button
+                        onClick={() => setActiveTab('leaflet')}
+                        className="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 text-slate-200 rounded-lg text-xs font-medium"
+                      >
+                        Switch to Leaflet Map
+                      </button>
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* Folium iframe */}
+                <iframe
+                  key={`${selectedTripId}-${iframeKey}`}
+                  title="Folium route map"
+                  src={`${API_BASE_URL}/api/trips/${selectedTripId}/map`}
+                  style={{ width: "100%", height: "600px", border: 0 }}
+                  onLoad={() => setIsIframeLoading(false)}
+                  onError={() => {
+                    setIsIframeLoading(false);
+                    setIframeError(`Failed to load Folium map from Laptop 1 at ${API_BASE_URL}/api/trips/${selectedTripId}/map.`);
+                  }}
+                />
               </div>
             )}
           </div>
