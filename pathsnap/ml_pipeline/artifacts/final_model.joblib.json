@@ -1,0 +1,23 @@
+{
+  "artifact_version": 1,
+  "created_at_utc": "2026-11-18T05:55:05.964881+00:00",
+  "feature_names": [
+    "distance_m",
+    "heading_difference_deg",
+    "speed_mps",
+    "time_delta_s",
+    "candidate_rank",
+    "segment_length_m",
+    "movement_distance_m",
+    "network_connected_prev"
+  ],
+  "model_name": "tuned_hist_gradient_boosting",
+  "parameters": {
+    "learning_rate": 0.0798261175712336,
+    "max_iter": 201,
+    "max_leaf_nodes": 9,
+    "l2_regularization": 6.598711072054068
+  },
+  "training_partition": "train",
+  "evaluation_partition": "student_test"
+}

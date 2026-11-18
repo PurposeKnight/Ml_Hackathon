@@ -1,0 +1,51 @@
+# Final submission checklist
+
+## Repository evidence
+
+- [x] Data loading, validation, preprocessing, and inventory source in `pathsnap/data_pipeline/`.
+- [x] Eight-feature schema and candidate generation source in `pathsnap/data_pipeline/`.
+- [x] Five model factories and corrected training/evaluation source in `pathsnap/ml_pipeline/`.
+- [x] Corrected training-only negative sampling regression tests.
+- [x] Corrected complete-candidate validation/student metrics.
+- [x] Corrected Logistic Regression Bayesian optimization and raw Optuna trials.
+- [x] HMM/Viterbi source and decoder tests.
+- [x] FastAPI endpoints and startup model loading in `pathsnap/backend/`.
+- [x] Folium and static visualization source/results.
+- [x] Versioned tuned model and feature manifest.
+- [x] CSV metrics, configurations, plots, label audit, and report.
+- [x] Laptop 2 UI/API demonstration screenshot.
+
+## Verification
+
+```powershell
+python -m pytest -q
+```
+
+Expected current result: `13 passed`.
+
+Start Laptop 1 API with the corrected tuned artifact:
+
+```powershell
+$env:PATHSNAP_DATA_ROOT = "Student folder\Student folder"
+$env:MODEL_PATH = "results\corrected_models\selected_model.joblib"
+$env:API_HOST = "0.0.0.0"
+$env:API_PORT = "8000"
+$env:FRONTEND_ORIGIN = "http://<laptop-2-ip>:3000"
+python -m uvicorn pathsnap.backend.main:app --host 0.0.0.0 --port 8000
+```
+
+From Laptop 2, verify `GET http://<laptop-1-ip>:8000/health`, then open the UI and run a trip prediction. The UI
+must use Laptop 1's LAN address, not `localhost`.
+
+## Known evaluation limitation
+
+The prediction endpoint now returns rounded `accuracy` when a permitted `.route` file exists and always returns
+`route_continuity`. Trips without a route keep `accuracy: null`. The Folium map endpoint remains inference-only and
+does not include a reference-route layer.
+
+## TA evaluator folder
+
+Place the TA-supplied `evaluator_test/` folder locally on Laptop 1. Do not commit or use it for training, tuning, model
+selection, or development metrics. For the final inference demonstration, point `PATHSNAP_DATA_ROOT` at the local
+directory containing `evaluator_test/` (the repository root in this layout); the backend automatically prefers the
+`evaluator_test` partition and loads trips with `include_route=False`.

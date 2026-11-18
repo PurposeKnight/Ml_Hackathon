@@ -1,0 +1,13 @@
+{
+  "student_trip_for_map": "00000000",
+  "student_trips_used_for_distributions": 10,
+  "confusion_matrix_counts": {
+    "true_negative": 16385,
+    "false_positive": 78202,
+    "false_negative": 3052,
+    "true_positive": 16052
+  },
+  "comparison_csv": "results\\models\\model_comparison.csv",
+  "model_path": "pathsnap\\ml_pipeline\\artifacts\\final_model.joblib",
+  "training_performed": false
+}

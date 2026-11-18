@@ -37,3 +37,13 @@ Thumbs.db
 .vscode/
 .idea/
 *.log
+.env
+Student folder/
+evaluator_test/
+data/
+pathsnap/ml_pipeline/artifacts/*
+!pathsnap/ml_pipeline/artifacts/final_model.joblib
+!pathsnap/ml_pipeline/artifacts/final_model.joblib.json
+results/**/*.html
+!results/maps/trip_00000000.html
+!results/plots/gps_matched_route_map.html

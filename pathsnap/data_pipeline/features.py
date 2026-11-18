@@ -20,6 +20,7 @@ FEATURE_NAMES = (
     "candidate_rank",
     "segment_length_m",
     "movement_distance_m",
+    "network_connected_prev",
 )
 
 
@@ -46,6 +47,13 @@ def candidate_feature_rows(trip: TripData, candidates: list[list[Candidate]], gr
             movement_heading = (math.degrees(math.atan2(displacement[0], displacement[1])) + 360.0) % 360.0
         for candidate in observation_candidates:
             heading_difference = 0.0 if movement_heading is None else _angle_difference(float(graph.arc_headings_deg[candidate.arc_id]), movement_heading)
+            connected_previous = 0.0
+            if obs_id > 0 and candidates[obs_id - 1]:
+                previous_arc = candidates[obs_id - 1][0].arc_id
+                connected_previous = float(
+                    candidate.arc_id == previous_arc
+                    or graph.arc_nodes[previous_arc, 1] == graph.arc_nodes[candidate.arc_id, 0]
+                )
             rows.append({
                 "observation_id": obs_id,
                 "arc_id": candidate.arc_id,
@@ -56,6 +64,7 @@ def candidate_feature_rows(trip: TripData, candidates: list[list[Candidate]], gr
                 "candidate_rank": candidate.rank,
                 "segment_length_m": float(graph.arc_lengths_m[candidate.arc_id]),
                 "movement_distance_m": movement_distance,
+                "network_connected_prev": connected_previous,
             })
     return rows
 

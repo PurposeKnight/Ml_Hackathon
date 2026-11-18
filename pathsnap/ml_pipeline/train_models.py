@@ -25,7 +25,7 @@ from pathsnap.data_pipeline.road_graph import RoadGraph
 from pathsnap.ml_pipeline.models import model_factories
 
 
-def build_dataset(root: Path, partition: str, radius_m: float = 50.0, max_candidates: int = 8) -> pd.DataFrame:
+def build_dataset(root: Path, partition: str, radius_m: float = 50.0, max_candidates: int = 8, negatives_per_observation: int | None = 3) -> pd.DataFrame:
     rows: list[dict[str, float | int | str]] = []
     for files in DatasetLayout(root).discover(partition, require_route=True):
         trip = load_trip(files, include_route=True)
@@ -38,7 +38,15 @@ def build_dataset(root: Path, partition: str, radius_m: float = 50.0, max_candid
     frame = pd.DataFrame(rows)
     if frame.empty:
         raise ValueError(f"No candidate rows found for partition {partition}")
-    return frame
+    if negatives_per_observation is not None and negatives_per_observation < 0:
+        raise ValueError("negatives_per_observation must be non-negative")
+    if negatives_per_observation is None:
+        return frame.reset_index(drop=True)
+    # Keep all positives and a deterministic rank-ordered negative sample per
+    # observation. This preserves the ranking task while keeping KNN tractable.
+    frame["_negative_order"] = frame["target"].eq(0).groupby([frame["trip_id"], frame["observation_id"]]).cumsum()
+    selected = (frame["target"] == 1) | (frame["_negative_order"] <= negatives_per_observation)
+    return frame.loc[selected].drop(columns="_negative_order").reset_index(drop=True)
 
 
 def _predict_positive(model, values: np.ndarray) -> np.ndarray:
@@ -48,7 +56,7 @@ def _predict_positive(model, values: np.ndarray) -> np.ndarray:
 
 
 def observation_top1(frame: pd.DataFrame, scores: np.ndarray) -> tuple[float, float]:
-    work = frame[["trip_id", "observation_id", "target"]].copy()
+    work = frame[["trip_id", "observation_id", "target", "candidate_miss"]].copy()
     work["score"] = scores
     best = work.loc[work.groupby(["trip_id", "observation_id"])["score"].idxmax()]
     return float(best["target"].mean()), float(work["candidate_miss"].groupby([work["trip_id"], work["observation_id"]]).first().mean())
@@ -69,9 +77,10 @@ def evaluate_model(model, frame: pd.DataFrame, values: np.ndarray) -> dict[str, 
     }
 
 
-def run_experiment(root: Path, output_dir: Path, seed: int = 42, folds: int = 5) -> pd.DataFrame:
-    train = build_dataset(root, "train")
-    student = build_dataset(root, "student_test")
+def run_experiment(root: Path, output_dir: Path, seed: int = 42, folds: int = 3, negatives_per_observation: int = 1, max_candidates: int = 4, student_max_candidates: int = 8) -> pd.DataFrame:
+    train = build_dataset(root, "train", max_candidates=max_candidates, negatives_per_observation=negatives_per_observation)
+    # Student metrics must use every generated candidate, not the training negative sample.
+    student = build_dataset(root, "student_test", max_candidates=student_max_candidates, negatives_per_observation=None)
     values_train = train.loc[:, FEATURE_NAMES].to_numpy(dtype=float)
     values_student = student.loc[:, FEATURE_NAMES].to_numpy(dtype=float)
     groups = train["trip_id"].to_numpy()
@@ -93,7 +102,7 @@ def run_experiment(root: Path, output_dir: Path, seed: int = 42, folds: int = 5)
     output_dir.mkdir(parents=True, exist_ok=True)
     result = pd.DataFrame(records)
     result.to_csv(output_dir / "model_comparison.csv", index=False)
-    (output_dir / "experiment_config.json").write_text(json.dumps({"seed": seed, "folds": folds, "feature_names": FEATURE_NAMES}, indent=2), encoding="utf-8")
+    (output_dir / "experiment_config.json").write_text(json.dumps({"seed": seed, "folds": folds, "feature_names": FEATURE_NAMES, "train_negatives_per_observation": negatives_per_observation, "train_max_candidates": max_candidates, "student_max_candidates": student_max_candidates, "student_negative_sampling": None}, indent=2), encoding="utf-8")
     return result
 
 
@@ -101,8 +110,12 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--data-root", required=True, type=Path)
     parser.add_argument("--output-dir", default="results/models", type=Path)
+    parser.add_argument("--folds", default=3, type=int)
+    parser.add_argument("--max-candidates", default=4, type=int, help="training candidates per observation")
+    parser.add_argument("--student-max-candidates", default=8, type=int)
+    parser.add_argument("--negatives-per-observation", default=1, type=int)
     args = parser.parse_args()
-    print(run_experiment(args.data_root, args.output_dir).to_string(index=False))
+    print(run_experiment(args.data_root, args.output_dir, folds=args.folds, max_candidates=args.max_candidates, student_max_candidates=args.student_max_candidates, negatives_per_observation=args.negatives_per_observation).to_string(index=False))
 
 
 if __name__ == "__main__":

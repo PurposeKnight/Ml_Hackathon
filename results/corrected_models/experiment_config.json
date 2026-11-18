@@ -1,0 +1,21 @@
+{
+  "seed": 42,
+  "folds": 3,
+  "feature_names": [
+    "distance_m",
+    "heading_difference_deg",
+    "speed_mps",
+    "time_delta_s",
+    "candidate_rank",
+    "segment_length_m",
+    "movement_distance_m",
+    "network_connected_prev"
+  ],
+  "radius_m": 50.0,
+  "max_candidates": 4,
+  "training_negatives_per_observation": 1,
+  "validation_negative_sampling": null,
+  "student_negative_sampling": null,
+  "training_trips": 80,
+  "student_test_trips": 10
+}
