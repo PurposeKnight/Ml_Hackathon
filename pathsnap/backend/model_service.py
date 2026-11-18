@@ -60,13 +60,32 @@ class ModelService:
                 continue
             route_coordinates.extend(graph.node_coordinates[graph.arc_nodes[arc_id]].tolist())
         gps_coordinates = trip.track[:, :2].tolist()
+        connected_transitions = 0
+        total_transitions = 0
+        for previous_arc, current_arc in zip(decoded, decoded[1:], strict=False):
+            if previous_arc is None or current_arc is None:
+                continue
+            total_transitions += 1
+            if graph.arc_nodes[previous_arc][1] == graph.arc_nodes[current_arc][0]:
+                connected_transitions += 1
+        continuity = round(connected_transitions / total_transitions, 4) if total_transitions else 0.0
+        accuracy = None
+        if files.route is not None and files.route.is_file():
+            reference_trip = load_trip(files, include_route=True)
+            true_route = reference_trip.route
+            if true_route is not None and len(true_route):
+                matches = sum(
+                    predicted_arc is not None and int(predicted_arc) == int(true_arc)
+                    for predicted_arc, true_arc in zip(decoded, true_route, strict=False)
+                )
+                accuracy = round(matches / len(true_route), 4)
         return {
             "trip_id": trip_id,
             "status": "success",
             "predicted_segments": decoded,
             "predicted_route_coordinates": route_coordinates,
             "gps_coordinates": gps_coordinates,
-            "metrics": {"accuracy": None, "route_continuity": None},
+            "metrics": {"accuracy": accuracy, "route_continuity": continuity},
             "inference_time_ms": (time.perf_counter() - started) * 1000,
         }
 

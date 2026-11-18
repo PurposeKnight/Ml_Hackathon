@@ -39,8 +39,9 @@ must use Laptop 1's LAN address, not `localhost`.
 
 ## Known evaluation limitation
 
-Evaluator ground-truth labels are intentionally not returned by Laptop 1, so evaluator accuracy and continuity appear
-as N/A in the Laptop 2 interface. This is the documented zero-ground-truth-leakage policy, not a failed prediction.
+The prediction endpoint now returns rounded `accuracy` when a permitted `.route` file exists and always returns
+`route_continuity`. Trips without a route keep `accuracy: null`. The Folium map endpoint remains inference-only and
+does not include a reference-route layer.
 
 ## TA evaluator folder
 

@@ -35,3 +35,17 @@ def test_folium_map_endpoint_returns_html_for_available_trip() -> None:
     assert "GPS observations" in response.text
     assert "Predicted route" in response.text
     assert "Reference route" not in response.text
+
+
+def test_predict_returns_route_metrics_when_reference_route_exists() -> None:
+    from pathsnap.backend.main import app
+
+    with TestClient(app) as client:
+        trip_id = client.get("/api/trips").json()[0]
+        response = client.post("/api/predict", json={"trip_id": trip_id})
+    assert response.status_code == 200
+    metrics = response.json()["metrics"]
+    assert isinstance(metrics["accuracy"], float)
+    assert 0.0 <= metrics["accuracy"] <= 1.0
+    assert isinstance(metrics["route_continuity"], float)
+    assert 0.0 <= metrics["route_continuity"] <= 1.0

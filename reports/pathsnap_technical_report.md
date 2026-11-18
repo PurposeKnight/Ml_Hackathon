@@ -85,5 +85,6 @@ from committed CSV evidence, and the selected model plus feature schema are load
 
 The evaluator UI was connected to Laptop 1's FastAPI service over the LAN. The captured demonstration in
 `reports/laptop2_ui_demo.png` shows ten available evaluation trips, a successful prediction for trip `00000000`,
-2,503 GPS points, 2,503 decoded road segments, and the GPS/predicted-route map. Accuracy and continuity are shown as
-N/A by design because evaluator ground-truth routes are not returned to the inference laptop.
+2,503 GPS points, 2,503 decoded road segments, and the GPS/predicted-route map. The current prediction endpoint also
+returns rounded accuracy when an authorized route file exists and route continuity for every successful prediction;
+the Folium map itself remains reference-route-free.
