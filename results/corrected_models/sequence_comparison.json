@@ -1,0 +1,16 @@
+{
+  "partition": "student_test",
+  "trips": 10,
+  "observations": 19160,
+  "candidate_rows": 67872,
+  "zero_candidate_observations": 0,
+  "candidate_misses": 380,
+  "candidate_miss_rate": 0.019832985386221295,
+  "classifier_top1_accuracy": 0.7643006263048017,
+  "hmm_top1_accuracy": 0.8251565762004175,
+  "classifier_route_continuity": 0.8912271540469974,
+  "hmm_route_continuity": 0.9868929503916449,
+  "classifier_continuity_eligible_edges": 19150,
+  "hmm_continuity_eligible_edges": 19150,
+  "inference_ms_per_candidate": 0.0010538219074349374
+}

@@ -13,6 +13,9 @@ node/arc references, and keeps the official 80 training / 10 student-test split.
 not assumed to be GPS-row aligned. A local metric projection supports exact point-to-segment distances. Candidate
 generation uses a 50 m radius and four-candidate cap for the final experiment.
 
+The committed inventory contains 80 training trips and 10 student-test trips. Missing-value totals are zero in both
+partitions, and all 90 inventory records are valid.
+
 The stable feature order is: distance, heading difference, speed, time delta, candidate rank, segment length,
 movement distance, and previous-network connectivity. Missing candidates remain empty groups rather than being assigned
 an invented segment.
@@ -30,6 +33,9 @@ artifact is the selected deployment model; its complete-candidate student Macro 
 The prior sampled-student results under `results/models/` are preserved but are not directly comparable because their
 evaluation population was different.
 
+The final tuned-versus-untuned comparison records tuned Log Loss 0.456162 and tuned inference time 0.001054
+milliseconds per candidate.
+
 ## 4. Model-specific interpretation and visualisations
 
 The report includes an actual-results figure with CV Macro F1, student Top-1 accuracy, student Macro F1, and log-loss
@@ -46,12 +52,21 @@ The repository contains the earlier eight-trial Optuna HGB study and its raw evi
 That study is retained for reproducibility. It was run before the complete-candidate baseline and is not mixed with the
 final model comparison.
 
+The final Logistic Regression search used 12 Optuna TPE trials, seed 42 and 3-fold GroupKFold. The search space was
+`C` log-uniform from 1e-3 to 1e2, `class_weight` in `{balanced, None}`, and `max_iter` from 200 to 800. The best
+parameters were `C=0.0010660012`, `class_weight=None`, and `max_iter=700`.
+
 ## 6. HMM/Viterbi route reconstruction
 
 Hidden states are candidate arc IDs. Emissions combine classifier positive probability with a distance likelihood in
 log space. Transitions reward staying on an arc or moving to a directed-connected arc and apply a finite penalty to
 disconnected transitions. Empty candidate groups emit null predictions and reset the dynamic program, so missing GPS
 matches do not create invented roads. Unit tests cover variable candidate groups and disconnected observations.
+
+On the same 10 student-test trips, classifier-only inference achieved Top-1 0.764301 and route continuity 0.891227.
+HMM/Viterbi achieved Top-1 0.825157 and continuity 0.986893. Continuity is the fraction of eligible adjacent
+predicted pairs that stay on the same arc or follow a directed graph edge; missing predictions are excluded from that
+denominator. This paired comparison uses development labels and is not evaluator-ground-truth evidence.
 
 ## 7. Geographical evidence
 

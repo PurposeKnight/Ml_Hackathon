@@ -62,6 +62,16 @@ python -m pathsnap.ml_pipeline.corrected_optimization `
 
 Its trial log and tuned-vs-baseline comparison are saved beside the corrected model results.
 
+To reproduce the development-only classifier versus HMM/Viterbi sequence comparison without training:
+
+```powershell
+python -m pathsnap.ml_pipeline.sequence_evaluation `
+  --data-root "Student folder\Student folder" `
+  --model results\corrected_models\selected_model.joblib `
+  --output results\corrected_models\sequence_comparison.json `
+  --max-candidates 4
+```
+
 ## API
 
 Use the corrected artifact explicitly when starting the service:
