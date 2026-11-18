@@ -100,3 +100,4 @@ The frontend suite contains unit and integration tests executing on Vitest:
 - **`tests/api.test.ts`:** Verifies request payload generation, API response parsing, and error-handling behavior for unreachable endpoints or missing trips.
 - **Test Results:** 2 test suites, 9 unit tests passing with zero failures.
 - **Production Build:** `vite build` completed successfully producing optimized, tree-shaken static assets (`dist/`).
+
