@@ -62,3 +62,10 @@ Reference labels are a nearest-route-arc heuristic, not independently surveyed g
 distance margins are ambiguous on parallel roads; large distances can reflect GPS noise or incomplete route geometry;
 repeated arcs are allowed. The audit is in `results/corrected_models/label_quality.csv`. All reported metrics are read
 from committed CSV evidence, and the selected model plus feature schema are load-tested before deployment.
+
+## 9. Laptop 2 integration evidence
+
+The evaluator UI was connected to Laptop 1's FastAPI service over the LAN. The captured demonstration in
+`reports/laptop2_ui_demo.png` shows ten available evaluation trips, a successful prediction for trip `00000000`,
+2,503 GPS points, 2,503 decoded road segments, and the GPS/predicted-route map. Accuracy and continuity are shown as
+N/A by design because evaluator ground-truth routes are not returned to the inference laptop.
