@@ -8,7 +8,7 @@ from typing import Any
 import numpy as np
 
 
-def optimize_hist_gradient_boosting(values, targets, groups, output_dir: str | Path, n_trials: int = 25, seed: int = 42) -> dict[str, Any]:
+def optimize_hist_gradient_boosting(values, targets, groups, output_dir: str | Path, n_trials: int = 25, seed: int = 42, folds: int = 3) -> dict[str, Any]:
     """Optimize HGB parameters; returns a persisted, auditable study summary."""
     try:
         import optuna
@@ -20,7 +20,7 @@ def optimize_hist_gradient_boosting(values, targets, groups, output_dir: str | P
     values = np.asarray(values, dtype=float)
     targets = np.asarray(targets, dtype=int)
     groups = np.asarray(groups)
-    splitter = GroupKFold(n_splits=5)
+    splitter = GroupKFold(n_splits=folds)
     output = Path(output_dir)
     output.mkdir(parents=True, exist_ok=True)
     study = optuna.create_study(direction="maximize", sampler=optuna.samplers.TPESampler(seed=seed))
@@ -41,7 +41,7 @@ def optimize_hist_gradient_boosting(values, targets, groups, output_dir: str | P
 
     study.optimize(objective, n_trials=n_trials)
     study.trials_dataframe().to_csv(output / "optuna_trials.csv", index=False)
-    summary = {"best_value": study.best_value, "best_params": study.best_params, "n_trials": len(study.trials), "seed": seed}
+    summary = {"best_value": study.best_value, "best_params": study.best_params, "n_trials": len(study.trials), "seed": seed, "folds": folds}
     import json
     (output / "best_params.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     return summary
