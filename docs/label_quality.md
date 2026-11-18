@@ -18,5 +18,5 @@ Run:
 python -m pathsnap.data_pipeline.label_audit --data-root "Student folder/Student folder"
 ```
 
-The generated [label_quality.csv](../results/labels/label_quality.csv) is an audit of limitations, not a claim that the
+The generated [label_quality.csv](../results/corrected_models/label_quality.csv) is an audit of limitations, not a claim that the
 heuristic labels are perfect physical ground truth.
