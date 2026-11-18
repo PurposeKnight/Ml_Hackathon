@@ -75,9 +75,9 @@ def evaluate_model(model, frame: pd.DataFrame, values: np.ndarray) -> dict[str, 
     }
 
 
-def run_experiment(root: Path, output_dir: Path, seed: int = 42, folds: int = 3, negatives_per_observation: int = 3) -> pd.DataFrame:
-    train = build_dataset(root, "train", negatives_per_observation=negatives_per_observation)
-    student = build_dataset(root, "student_test", negatives_per_observation=negatives_per_observation)
+def run_experiment(root: Path, output_dir: Path, seed: int = 42, folds: int = 3, negatives_per_observation: int = 3, max_candidates: int = 8) -> pd.DataFrame:
+    train = build_dataset(root, "train", max_candidates=max_candidates, negatives_per_observation=negatives_per_observation)
+    student = build_dataset(root, "student_test", max_candidates=max_candidates, negatives_per_observation=negatives_per_observation)
     values_train = train.loc[:, FEATURE_NAMES].to_numpy(dtype=float)
     values_student = student.loc[:, FEATURE_NAMES].to_numpy(dtype=float)
     groups = train["trip_id"].to_numpy()
@@ -99,7 +99,7 @@ def run_experiment(root: Path, output_dir: Path, seed: int = 42, folds: int = 3,
     output_dir.mkdir(parents=True, exist_ok=True)
     result = pd.DataFrame(records)
     result.to_csv(output_dir / "model_comparison.csv", index=False)
-    (output_dir / "experiment_config.json").write_text(json.dumps({"seed": seed, "folds": folds, "feature_names": FEATURE_NAMES, "negatives_per_observation": negatives_per_observation}, indent=2), encoding="utf-8")
+    (output_dir / "experiment_config.json").write_text(json.dumps({"seed": seed, "folds": folds, "feature_names": FEATURE_NAMES, "negatives_per_observation": negatives_per_observation, "max_candidates": max_candidates}, indent=2), encoding="utf-8")
     return result
 
 
@@ -108,8 +108,10 @@ def main() -> None:
     parser.add_argument("--data-root", required=True, type=Path)
     parser.add_argument("--output-dir", default="results/models", type=Path)
     parser.add_argument("--folds", default=3, type=int)
+    parser.add_argument("--max-candidates", default=4, type=int)
+    parser.add_argument("--negatives-per-observation", default=1, type=int)
     args = parser.parse_args()
-    print(run_experiment(args.data_root, args.output_dir, folds=args.folds).to_string(index=False))
+    print(run_experiment(args.data_root, args.output_dir, folds=args.folds, max_candidates=args.max_candidates, negatives_per_observation=args.negatives_per_observation).to_string(index=False))
 
 
 if __name__ == "__main__":
