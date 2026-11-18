@@ -5,7 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 import numpy as np
-import networkx as nx
 from scipy.spatial import cKDTree
 
 from .loaders import TripData
@@ -42,19 +41,33 @@ class RoadGraph:
 
     def connectivity_summary(self) -> dict[str, int]:
         """Return directed/weak connectivity facts for EDA and diagnostics."""
-        graph = nx.DiGraph()
-        graph.add_nodes_from(range(len(self.node_coordinates)))
-        graph.add_edges_from((int(source), int(target)) for source, target in self.arc_nodes)
-        weak_components = list(nx.weakly_connected_components(graph))
+        # Union-find avoids materialising a second graph for the largest trips.
+        parent = np.arange(len(self.node_coordinates), dtype=np.int64)
+        degree = np.zeros(len(self.node_coordinates), dtype=np.int32)
+
+        def find(node: int) -> int:
+            while parent[node] != node:
+                parent[node] = parent[parent[node]]
+                node = int(parent[node])
+            return node
+
+        for source, target in self.arc_nodes:
+            source, target = int(source), int(target)
+            degree[source] += 1
+            degree[target] += 1
+            root_source, root_target = find(source), find(target)
+            if root_source != root_target:
+                parent[root_target] = root_source
+        roots = {find(node) for node in range(len(parent))}
+        component_sizes = np.bincount([find(node) for node in range(len(parent))])
         return {
-            "nodes": graph.number_of_nodes(),
+            "nodes": int(len(self.node_coordinates)),
             # Preserve the raw segment count even when duplicate node pairs
             # collapse in the simple NetworkX connectivity projection.
             "arcs": int(len(self.arc_nodes)),
-            "unique_directed_edges": graph.number_of_edges(),
-            "isolated_nodes": sum(1 for node in graph if graph.degree(node) == 0),
-            "weak_components": len(weak_components),
-            "largest_weak_component_nodes": max((len(component) for component in weak_components), default=0),
+            "isolated_nodes": int(np.count_nonzero(degree == 0)),
+            "weak_components": len(roots),
+            "largest_weak_component_nodes": int(component_sizes.max(initial=0)),
         }
 
 

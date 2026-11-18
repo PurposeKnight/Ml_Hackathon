@@ -11,6 +11,7 @@ from typing import Any
 import numpy as np
 
 from .loaders import DatasetLayout, load_trip
+from .road_graph import RoadGraph
 from .validation import validate_trip
 
 
@@ -21,6 +22,7 @@ def inventory(dataset_root: str | Path) -> list[dict[str, Any]]:
         for files in layout.discover(partition):
             trip = load_trip(files, include_route=files.route is not None)
             report = validate_trip(trip)
+            graph = RoadGraph.from_trip(trip)
             deltas = np.diff(trip.track[:, 2])
             records.append({
                 "partition": partition,
@@ -29,6 +31,15 @@ def inventory(dataset_root: str | Path) -> list[dict[str, Any]]:
                 "nodes": len(trip.nodes),
                 "arcs": len(trip.arcs),
                 "route_arcs": len(trip.route) if trip.route is not None else 0,
+                "track_bytes": files.track.stat().st_size,
+                "nodes_bytes": files.nodes.stat().st_size,
+                "arcs_bytes": files.arcs.stat().st_size,
+                "route_bytes": files.route.stat().st_size if files.route is not None else 0,
+                "gps_min_lon": float(np.min(trip.track[:, 0])),
+                "gps_max_lon": float(np.max(trip.track[:, 0])),
+                "gps_min_lat": float(np.min(trip.track[:, 1])),
+                "gps_max_lat": float(np.max(trip.track[:, 1])),
+                **{f"network_{key}": value for key, value in graph.connectivity_summary().items()},
                 "missing_values": int(np.isnan(trip.track).sum() + np.isnan(trip.nodes).sum()),
                 "median_interval_s": float(np.median(deltas)) if len(deltas) else None,
                 "max_interval_s": float(np.max(deltas)) if len(deltas) else None,

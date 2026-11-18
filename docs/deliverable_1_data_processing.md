@@ -35,6 +35,7 @@ All API and internal coordinate arrays use `[longitude, latitude]` order.
 5. `candidate_rank`
 6. `segment_length_m`
 7. `movement_distance_m`
+8. `network_connected_prev` (whether the candidate continues the nearest candidate from the prior observation)
 
 Candidate records also preserve `trip_id`, `observation_id`, `arc_id`, rank, and projection fraction.
 Observations with no candidates return an empty candidate list and are not silently assigned a road segment.
