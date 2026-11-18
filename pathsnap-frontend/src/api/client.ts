@@ -3,12 +3,21 @@
  */
 
 const STORAGE_KEY = 'pathsnap_backend_url';
+let memoryUrlOverride: string | null = null;
 
 export function getBackendBaseUrl(): string {
+  if (memoryUrlOverride) {
+    return memoryUrlOverride;
+  }
+
   // Allow evaluator or user to override dynamically via UI
-  const stored = typeof window !== 'undefined' ? localStorage.getItem(STORAGE_KEY) : null;
-  if (stored && stored.trim() !== '') {
-    return stored.trim().replace(/\/+$/, '');
+  try {
+    const stored = typeof window !== 'undefined' && window.localStorage ? window.localStorage.getItem(STORAGE_KEY) : null;
+    if (stored && stored.trim() !== '') {
+      return stored.trim().replace(/\/+$/, '');
+    }
+  } catch {
+    // LocalStorage inaccessible
   }
 
   const envUrl = import.meta.env.VITE_API_BASE_URL;
@@ -21,14 +30,24 @@ export function getBackendBaseUrl(): string {
 
 export function setBackendBaseUrl(url: string): void {
   const sanitized = url.trim().replace(/\/+$/, '');
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(STORAGE_KEY, sanitized);
+  memoryUrlOverride = sanitized;
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.setItem(STORAGE_KEY, sanitized);
+    }
+  } catch {
+    // LocalStorage inaccessible
   }
 }
 
 export function resetBackendBaseUrl(): void {
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem(STORAGE_KEY);
+  memoryUrlOverride = null;
+  try {
+    if (typeof window !== 'undefined' && window.localStorage) {
+      window.localStorage.removeItem(STORAGE_KEY);
+    }
+  } catch {
+    // LocalStorage inaccessible
   }
 }
 
@@ -126,4 +145,3 @@ export async function apiRequest<T>(
     throw new ApiError('An unknown communication error occurred with Laptop 1.');
   }
 }
-
