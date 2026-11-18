@@ -41,3 +41,10 @@ must use Laptop 1's LAN address, not `localhost`.
 
 Evaluator ground-truth labels are intentionally not returned by Laptop 1, so evaluator accuracy and continuity appear
 as N/A in the Laptop 2 interface. This is the documented zero-ground-truth-leakage policy, not a failed prediction.
+
+## TA evaluator folder
+
+Place the TA-supplied `evaluator_test/` folder locally on Laptop 1. Do not commit or use it for training, tuning, model
+selection, or development metrics. For the final inference demonstration, point `PATHSNAP_DATA_ROOT` at the local
+directory containing `evaluator_test/` (the repository root in this layout); the backend automatically prefers the
+`evaluator_test` partition and loads trips with `include_route=False`.

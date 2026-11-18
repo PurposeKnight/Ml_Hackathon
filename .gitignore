@@ -5,6 +5,7 @@ __pycache__/
 .venv/
 .env
 Student folder/
+evaluator_test/
 data/
 pathsnap/ml_pipeline/artifacts/*
 !pathsnap/ml_pipeline/artifacts/final_model.joblib
